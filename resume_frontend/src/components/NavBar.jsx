@@ -29,7 +29,7 @@ function NavBar(){
     </ul>
   </div>
   <div className="navbar-end">
-    <a className="btn">Login</a>
+    <li><Link as={Link} to={"/Login"}>Login</Link></li>
   </div>
 </div>
     );

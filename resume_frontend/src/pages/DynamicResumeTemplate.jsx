@@ -1,254 +1,332 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { 
-  FaEnvelope, 
-  FaPhone, 
-  FaLinkedin, 
-  FaGithub, 
-  FaMapMarkerAlt,
-  FaCalendarAlt,
-  FaTrophy, // New icon for Achievements
-  FaGlobe, // New icon for Languages
-  FaAward // New icon for Certifications
+  FaEnvelope, 
+  FaPhone, 
+  FaLinkedin, 
+  FaGithub, 
+  FaMapMarkerAlt,
+  FaCalendarAlt,
+  FaTrophy,
+  FaGlobe,
+  FaAward,
+  FaDownload,
+  FaPrint,
+  FaCode,
+  FaBriefcase,
+  FaGraduationCap
 } from 'react-icons/fa';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const DynamicResumeTemplate = ({ jsonData }) => {
-  // 1. Safety check: If no data passed, return nothing or a placeholder
-  if (!jsonData) {
-    return <div className="text-center p-4">No resume data available to display.</div>;
-  }
+  const resumeRef = useRef(null);
 
-  // 2. Destructure ALL data points with default values and RENAME mismatched keys
-  const { 
-    personalInformation = {}, 
-    // --- CRITICAL FIX 1: Rename 'experience' from JSON to 'workExperience' ---
-    experience: workExperience = [], 
-    education = [], 
-    skills = [], 
-    projects = [],
-    summary = {}, // Top level summary object
-    achievements = [], // NEW: Add achievements
-    certifications = [], // NEW: Add certifications
-    languages = [] // NEW: Add languages
-  } = jsonData;
+  if (!jsonData) {
+    return <div className="text-center p-4">No resume data available to display.</div>;
+  }
+
+  // Handle the nested structure - data is inside a "resume" object
+  const data = jsonData.resume || jsonData;
+  
+  // Extract all sections
+  const personalInfo = data.personalInformation || {};
+  const skills = data.skills || [];
+  const summary = data.summary || '';
+  const education = data.education || {};
+  const portfolio = data.portfolio || [];
+  const experience = data.experience || [];
+  const certifications = data.certifications || {};
+  const achievements = jsonData.achievements || [];
+  const languages = jsonData.languages || [];
+  const interests = jsonData.interests || [];
+
+  // Format certifications
+  const certificationsList = [];
+  if (certifications.certification) {
+    const certArray = Array.isArray(certifications.certification) 
+      ? certifications.certification 
+      : [certifications.certification];
     
-    // Extract the summary text, checking both locations
-    const finalSummary = personalInformation.summary || summary.brief_summary || '';
+    certArray.forEach((cert, index) => {
+      certificationsList.push({
+        title: cert,
+        year: certifications.year?.[index] || '',
+        issuer: certifications.issuingOrganization?.[index] || ''
+      });
+    });
+  }
 
+  const downloadAsPDF = async () => {
+  if (!resumeRef.current) return;
+  
+  try {
+    // Use a simpler approach - just use browser's print with PDF destination
+    window.print();
+    
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Please use the Print button to save as PDF');
+  }
+};
 
-  return (
-    <div className="bg-white shadow-xl p-8 md:p-12 max-w-[21cm] mx-auto min-h-[29.7cm] text-gray-800" id="resume-template">
-      
-      {/* --- HEADER SECTION --- */}
-      <header className="border-b-2 border-gray-300 pb-6 mb-6">
-        <h1 className="text-4xl font-bold text-gray-900 uppercase tracking-wide">
-          {personalInformation.fullName || 'Your Name'}
-        </h1>
-        {/* Use the jobTitle of the first experience entry as the title if available */}
-        <h2 className="text-xl text-blue-700 font-medium mt-2">
-          {personalInformation.title || workExperience[0]?.jobTitle || 'Professional Title'}
-        </h2>
-        
-        {/* Contact Info Grid */}
-        <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
-          {personalInformation.email && (
-            <div className="flex items-center gap-2">
-              <FaEnvelope className="text-blue-600" />
-              <span>{personalInformation.email}</span>
-            </div>
-          )}
-          
-          {personalInformation.phoneNumber && (
-            <div className="flex items-center gap-2">
-              <FaPhone className="text-blue-600" />
-              <span>{personalInformation.phoneNumber}</span>
-            </div>
-          )}
-          
-          {personalInformation.location && (
-            <div className="flex items-center gap-2">
-              <FaMapMarkerAlt className="text-blue-600" />
-              <span>{personalInformation.location}</span>
-            </div>
-          )}
-          
-          {personalInformation.linkedin && (
-            <div className="flex items-center gap-2">
-              <FaLinkedin className="text-blue-600" />
-              <a href={personalInformation.linkedin} target="_blank" rel="noopener noreferrer" className="hover:underline">LinkedIn</a>
-            </div>
-          )}
+  return (
+    <div className="relative">
+      {/* Download Buttons */}
+      <div className="sticky top-0 z-10 bg-white shadow-md p-4 mb-6 flex justify-end space-x-4 print:hidden">
+        <button
+          onClick={downloadAsPDF}
+          className="flex items-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+        >
+          <FaDownload />
+          <span>Download PDF</span>
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+        >
+          <FaPrint />
+          <span>Print</span>
+        </button>
+      </div>
 
-        </div>
-        
-        {/* Summary */}
-        {finalSummary && (
-          <div className="mt-6">
-            <p className="text-gray-700 leading-relaxed">
-              {finalSummary}
-            </p>
-          </div>
-        )}
-      </header>
-
-      {/* --- MAIN CONTENT GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN (Skills, Education, Languages, Certifications, Achievements) */}
-        <div className="col-span-1 space-y-8">
-          
-          {/* Skills Section */}
-          {skills && skills.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-3 uppercase">
-                Skills
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {skills.map((skill, index) => (
-                  <span 
-                    key={index} 
-                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium"
-                  >
-                    {skill.title || skill.name || skill}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Education Section */}
-          {education && education.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-3 uppercase">
-                Education
-              </h3>
-              <div className="space-y-4">
-                {education.map((edu, index) => (
-                  <div key={index}>
-                    <h4 className="font-bold text-gray-800">{edu.degree}</h4>
-                    <div className="text-blue-600 font-medium">{edu.university}</div>
-                    <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                      <FaCalendarAlt />
-                      {edu.graduationYear || edu.year || edu.startDate}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* NEW SECTION: Certifications */}
-          {certifications && certifications.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-3 uppercase flex items-center">
-                <FaAward className="mr-2 text-blue-600" /> Certifications
-              </h3>
-              <ul className="space-y-2 list-disc pl-5 text-sm">
-                {certifications.map((cert, index) => (
-                  <li key={index}>
-                    <span className="font-semibold">{cert.title}</span> 
-                    ({cert.issuingOrganization || 'N/A'}) - {cert.year}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* NEW SECTION: Languages */}
-          {languages && languages.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-3 uppercase flex items-center">
-                <FaGlobe className="mr-2 text-blue-600" /> Languages
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {languages.map((lang, index) => (
-                  <span 
-                    key={index} 
-                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
-                  >
-                    {lang.name || lang.language}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-
-        {/* RIGHT COLUMN (Experience, Projects, Achievements) */}
-        <div className="col-span-1 md:col-span-2 space-y-8">
-          
-          {/* Work Experience Section */}
-          {workExperience && workExperience.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-4 uppercase">
-                Professional Experience
-              </h3>
-              <div className="space-y-6">
-                {workExperience.map((job, index) => (
-                  <div key={index} className="relative pl-4 border-l-2 border-gray-200">
-                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-600 border-4 border-white"></div>
-                    
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h4 className="text-xl font-bold text-gray-800">{job.jobTitle}</h4>
-                      <span className="text-sm text-gray-500 whitespace-nowrap">
-                        {job.duration}
-                      </span>
-                    </div>
-                    
-                    <div className="text-lg text-blue-600 font-medium mb-2">{job.company}</div>
-                    
-                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
-                      {job.responsibility}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Projects Section (Optional) */}
-          {projects && projects.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-4 uppercase">
-                Projects
-              </h3>
-              <div className="space-y-4">
-                {projects.map((project, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-gray-800">{project.title}</h4>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-2">{project.description}</p>
-                    {project.technologiesUsed && (
-                      <div className="text-xs text-gray-500">
-                        <span className="font-semibold">Tech:</span> {project.technologiesUsed.join(', ')}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+      {/* Resume Content */}
+      <div 
+        ref={resumeRef}
+        className="bg-white shadow-xl p-8 max-w-4xl mx-auto print:shadow-none font-sans"
+      >
+        {/* Header */}
+        <div className="border-b-4 border-blue-600 pb-6 mb-6">
+          <h1 className="text-4xl font-bold text-gray-800">
+            {personalInfo.name || 'Your Name'}
+          </h1>
+          <p className="text-xl text-blue-600 mt-2 font-medium">
+            {personalInfo.title || 'Software Developer'}
+          </p>
           
-          {/* NEW SECTION: Achievements */}
-          {achievements && achievements.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold border-b-2 border-blue-700 pb-1 mb-4 uppercase flex items-center">
-                <FaTrophy className="mr-2 text-blue-600" /> Achievements
-              </h3>
-              <ul className="space-y-3 list-disc pl-5 text-gray-700">
-                {achievements.map((ach, index) => (
-                  <li key={index} className="text-sm">
-                    <span className="font-semibold">{ach.title} ({ach.year})</span>: {ach.extraInformation}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* Contact Info Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm text-gray-600">
+            {personalInfo.email && (
+              <div className="flex items-center gap-2">
+                <FaEnvelope className="text-blue-600 flex-shrink-0" />
+                <span>{personalInfo.email}</span>
+              </div>
+            )}
+            {personalInfo.phoneNumber && (
+              <div className="flex items-center gap-2">
+                <FaPhone className="text-blue-600 flex-shrink-0" />
+                <span>{personalInfo.phoneNumber}</span>
+              </div>
+            )}
+            {personalInfo.location && (
+              <div className="flex items-center gap-2">
+                <FaMapMarkerAlt className="text-blue-600 flex-shrink-0" />
+                <span>{personalInfo.location}</span>
+              </div>
+            )}
+            {personalInfo.linkedin && (
+              <div className="flex items-center gap-2">
+                <FaLinkedin className="text-blue-600 flex-shrink-0" />
+                <a href={personalInfo.linkedin} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">
+                  {personalInfo.linkedin.replace('https://', '')}
+                </a>
+              </div>
+            )}
+            {personalInfo.github && (
+              <div className="flex items-center gap-2">
+                <FaGithub className="text-blue-600 flex-shrink-0" />
+                <a href={`https://${personalInfo.github}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  {personalInfo.github}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
 
-        </div>
-      </div>
-    </div>
-  );
+        {/* Summary */}
+        {summary && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              Professional Summary
+            </h2>
+            <p className="text-gray-700 leading-relaxed pl-4">{summary}</p>
+          </div>
+        )}
+
+        {/* Skills */}
+        {skills.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              Technical Skills
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-4">
+              {skills.map((skill, index) => (
+                <div key={index} className="flex items-start">
+                  <span className="text-blue-600 mr-2">•</span>
+                  <div>
+                    <span className="font-medium text-gray-800">{skill.title}</span>
+                    {skill.level && (
+                      <span className="text-sm text-gray-500 ml-2">({skill.level})</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Work Experience */}
+        {experience.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              <FaBriefcase className="mr-2 text-blue-600" /> Work Experience
+            </h2>
+            <div className="space-y-6 pl-4">
+              {experience.map((exp, index) => (
+                <div key={index} className="border-l-2 border-gray-200 pl-4">
+                  <div className="flex flex-wrap justify-between items-start mb-2">
+                    <h3 className="text-lg font-bold text-gray-800">{exp.jobTitle}</h3>
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {exp.duration}
+                    </span>
+                  </div>
+                  <p className="text-blue-600 font-medium mb-2">{exp.company} • {exp.location}</p>
+                  <p className="text-gray-700 text-sm leading-relaxed">{exp.responsibility}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Projects / Portfolio */}
+        {portfolio.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              <FaCode className="mr-2 text-blue-600" /> Projects
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
+              {portfolio.map((project, index) => (
+                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-bold text-gray-800 mb-2">{project.title}</h3>
+                  <p className="text-sm text-gray-700 mb-2">{project.description}</p>
+                  {project.technologiesUsed && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {project.technologiesUsed.map((tech, i) => (
+                        <span key={i} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Education */}
+        {education.degree && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              <FaGraduationCap className="mr-2 text-blue-600" /> Education
+            </h2>
+            <div className="pl-4">
+              <h3 className="text-lg font-bold text-gray-800">{education.degree}</h3>
+              <p className="text-blue-600 font-medium">{education.university}</p>
+              <p className="text-sm text-gray-500">{education.location}</p>
+              <p className="text-sm text-gray-600 mt-1">Graduation: {education.graduationYear}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Certifications */}
+        {certificationsList.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              <FaAward className="mr-2 text-blue-600" /> Certifications
+            </h2>
+            <ul className="space-y-2 pl-4 list-disc">
+              {certificationsList.map((cert, index) => (
+                <li key={index} className="text-gray-700">
+                  <span className="font-medium">{cert.title}</span>
+                  {cert.issuer && <span className="text-gray-600"> - {cert.issuer}</span>}
+                  {cert.year && <span className="text-gray-500 text-sm ml-2">({cert.year})</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Achievements */}
+        {achievements.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              <FaTrophy className="mr-2 text-blue-600" /> Achievements
+            </h2>
+            <div className="space-y-3 pl-4">
+              {achievements.map((ach, index) => (
+                <div key={index} className="border-b border-gray-100 pb-2 last:border-0">
+                  <div className="flex items-start">
+                    <span className="text-blue-600 mr-2">🏆</span>
+                    <div>
+                      <span className="font-medium text-gray-800">{ach.title}</span>
+                      {ach.year && <span className="text-gray-500 text-sm ml-2">({ach.year})</span>}
+                      {ach.extraInformation && (
+                        <p className="text-sm text-gray-600 mt-1">{ach.extraInformation}</p>
+                      )}
+                      {ach.other && (
+                        <p className="text-sm text-gray-600 mt-1">{ach.other}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Languages */}
+        {languages.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              <FaGlobe className="mr-2 text-blue-600" /> Languages
+            </h2>
+            <div className="flex flex-wrap gap-3 pl-4">
+              {languages.map((lang, index) => (
+                <span key={index} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+                  {lang.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Interests */}
+        {interests.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
+              Interests
+            </h2>
+            <div className="flex flex-wrap gap-2 pl-4">
+              {interests.map((interest, index) => (
+                <span key={index} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
+                  {interest.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default DynamicResumeTemplate;

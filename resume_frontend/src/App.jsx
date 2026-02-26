@@ -1,16 +1,56 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import GenerateResume from './pages/GenerateResume';
+import ResumePreview from './pages/ResumePreview'; // Make sure this import exists
+import Home from './pages/Home';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Services from './pages/Services';
+import NavBar from './components/NavBar';
+
+// Protected Route component
+const ProtectedRoute = ({ children }) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        return <Navigate to="/login" replace />;
+    }
+    return children;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <h1 className="text-5xl text-gray-700 font-bold p-10">Welcome to resume app</h1>
-    </>
-  )
+    return (
+        <Router>
+            <NavBar />
+            <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/services" element={<Services />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                
+                {/* Protected Routes */}
+                <Route path="/generate-resume" element={
+                    <ProtectedRoute>
+                        <GenerateResume />
+                    </ProtectedRoute>
+                } />
+                
+                {/* Add this route - IMPORTANT */}
+                <Route path="/resume-preview" element={
+                    <ProtectedRoute>
+                        <ResumePreview />
+                    </ProtectedRoute>
+                } />
+                
+                {/* Catch all - redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </Router>
+    );
 }
 
-export default App
+export default App;
