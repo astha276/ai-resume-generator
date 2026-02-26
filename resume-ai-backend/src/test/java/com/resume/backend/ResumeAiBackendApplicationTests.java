@@ -14,7 +14,7 @@ class ResumeAiBackendApplicationTests {
 	private ResumeService resumeService;
 	@Test
 	void contextLoads(){
-		resumeService.generateResumeResponse("I am Astha Doshi with 2 years of java experience.");
+		resumeService.generateResumeResponse("I am Astha Doshi with 2 years of java experience.","astha@test.com");
 	}
 
 }

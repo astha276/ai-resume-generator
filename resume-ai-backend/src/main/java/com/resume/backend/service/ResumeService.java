@@ -1,8 +1,5 @@
 package com.resume.backend.service;
 
-
-import org.json.JSONObject;
-
 public interface ResumeService {
-    String generateResumeResponse(String userResumeDescription);
+    String generateResumeResponse(String userResumeDescription, String userEmail);
 }
