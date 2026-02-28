@@ -186,7 +186,7 @@ export const generateResume = async (description) => {
  */
 export const getResumeHistory = async () => {
   try {
-    const response = await axiosInstance.get("/api/v1/resume/history");
+    const response = await axiosInstance.get("/api/v1/resumes");
     return response.data;
   } catch (error) {
     console.error('Failed to fetch resume history:', error);

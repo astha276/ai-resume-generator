@@ -9,6 +9,7 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Services from './pages/Services';
 import NavBar from './components/NavBar';
+import ResumeHistory from './pages/ResumeHistory';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -43,6 +44,12 @@ function App() {
                 <Route path="/resume-preview" element={
                     <ProtectedRoute>
                         <ResumePreview />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/resume-history" element={
+                    <ProtectedRoute>
+                        <ResumeHistory />
                     </ProtectedRoute>
                 } />
                 
