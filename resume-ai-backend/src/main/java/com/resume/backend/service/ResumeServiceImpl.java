@@ -2,9 +2,11 @@ package com.resume.backend.service;
 
 import com.resume.backend.entity.User;
 import com.resume.backend.repository.UserRepository;
+import com.resume.backend.service.ResumeStorageService;
 import org.json.JSONObject;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,9 @@ public class ResumeServiceImpl implements ResumeService {
     private final ChatClient chatClient;
     private final UserRepository userRepository;
 
+    @Autowired
+    private ResumeStorageService resumeStorageService;
+
     public ResumeServiceImpl(ChatClient.Builder builder,
                              UserRepository userRepository) {
         System.out.println(">>> ResumeServiceImpl constructor called");
@@ -33,7 +38,7 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     public String generateResumeResponse(String userResumeDescription, String userEmail) {
         System.out.println("========== RESUME GENERATION STARTED ==========");
-        System.out.println("User Email: " + userEmail);
+        System.out.println("User: " + userEmail);
         System.out.println("Description: " + userResumeDescription);
 
         try {
@@ -47,56 +52,47 @@ public class ResumeServiceImpl implements ResumeService {
             System.out.println("Step 2: Loading prompt file...");
             String promptString;
             try {
-                promptString = this.loadPromptFromFile();
+                promptString = loadPromptFromFile();
                 System.out.println("✓ Prompt loaded successfully");
                 System.out.println("Prompt preview: " + promptString.substring(0, Math.min(100, promptString.length())) + "...");
             } catch (IOException e) {
                 System.err.println("✗ ERROR loading prompt file: " + e.getMessage());
                 e.printStackTrace();
-                JSONObject errorJson = new JSONObject();
-                errorJson.put("error", "Failed to load prompt template: " + e.getMessage());
-                errorJson.put("step", "load_prompt");
-                return errorJson.toString();
+                return createErrorResponse("Failed to load prompt template: " + e.getMessage()).toString();
             }
 
             // Step 3: Prepare prompt with user description
             System.out.println("Step 3: Preparing prompt with user description...");
-            String promptContent = this.putValuesToTemplate(promptString,
+            String fullPrompt = putValuesToTemplate(promptString,
                     Map.of("userDescription", userResumeDescription));
             System.out.println("✓ Prompt prepared");
-            System.out.println("Final prompt preview: " + promptContent.substring(0, Math.min(100, promptContent.length())) + "...");
+            System.out.println("Final prompt preview: " + fullPrompt.substring(0, Math.min(100, fullPrompt.length())) + "...");
 
             // Step 4: Call AI service
             System.out.println("Step 4: Calling AI service...");
             System.out.println("AI Service URL: " + getAiServiceUrl());
 
-            Prompt prompt = new Prompt(promptContent);
-            String aiResponse = null;
+            Prompt prompt = new Prompt(fullPrompt);
+            String ollamaResponse;
 
             try {
-                aiResponse = chatClient.prompt(prompt).call().content();
+                ollamaResponse = chatClient.prompt(prompt).call().content();
                 System.out.println("✓ AI response received");
-                System.out.println("AI response preview: " + (aiResponse != null ? aiResponse.substring(0, Math.min(100, aiResponse.length())) : "NULL"));
+                System.out.println("AI response preview: " + (ollamaResponse != null ? ollamaResponse.substring(0, Math.min(100, ollamaResponse.length())) : "NULL"));
             } catch (Exception e) {
                 System.err.println("✗ ERROR calling AI service: " + e.getMessage());
                 e.printStackTrace();
-                JSONObject errorJson = new JSONObject();
-                errorJson.put("error", "AI service error: " + e.getMessage());
-                errorJson.put("step", "ai_call");
-                return errorJson.toString();
+                return createErrorResponse("AI service error: " + e.getMessage()).toString();
             }
 
-            if (aiResponse == null) {
+            if (ollamaResponse == null) {
                 System.err.println("✗ AI response is null");
-                JSONObject errorJson = new JSONObject();
-                errorJson.put("error", "AI service returned no response");
-                errorJson.put("step", "ai_response_null");
-                return errorJson.toString();
+                return createErrorResponse("AI service returned no response").toString();
             }
 
             // Step 5: Parse response
             System.out.println("Step 5: Parsing AI response...");
-            JSONObject parsedResponse = parseMultipleResponses(aiResponse);
+            JSONObject parsedResponse = parseMultipleResponses(ollamaResponse);
             System.out.println("✓ Response parsed");
 
             // Step 6: Add metadata
@@ -105,19 +101,38 @@ public class ResumeServiceImpl implements ResumeService {
             parsedResponse.put("generatedAt", LocalDateTime.now().toString());
             parsedResponse.put("status", "success");
 
+            String finalResponse = parsedResponse.toString(2); // Pretty print with indentation
+
+            // Step 7: AUTO-SAVE to database
+            System.out.println("Step 7: Auto-saving to database...");
+            try {
+                // Create title from description
+                String title = userResumeDescription.length() > 60
+                        ? userResumeDescription.substring(0, 60) + "..."
+                        : userResumeDescription;
+
+                // Save to database
+                resumeStorageService.saveGeneratedResume(
+                        userEmail,
+                        userResumeDescription,
+                        finalResponse,
+                        title
+                );
+
+                System.out.println("✅ Resume auto-saved successfully!");
+
+            } catch (Exception e) {
+                System.err.println("⚠️ Auto-save failed: " + e.getMessage());
+                // Continue even if save fails
+            }
+
             System.out.println("========== RESUME GENERATION COMPLETED SUCCESSFULLY ==========");
-            return parsedResponse.toString(2); // Pretty print with indentation
+            return finalResponse;
 
         } catch (Exception e) {
             System.err.println("✗ UNEXPECTED ERROR in resume generation:");
             e.printStackTrace();
-
-            JSONObject errorJson = new JSONObject();
-            errorJson.put("error", "Failed to generate resume: " + e.getMessage());
-            errorJson.put("exception", e.getClass().getName());
-            errorJson.put("step", "unexpected_error");
-            errorJson.put("timestamp", LocalDateTime.now().toString());
-            return errorJson.toString();
+            return createErrorResponse("Failed to generate resume: " + e.getMessage()).toString();
         }
     }
 
