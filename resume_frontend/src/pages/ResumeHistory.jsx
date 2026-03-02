@@ -15,7 +15,8 @@ import {
   FaSortAmountDown,
   FaTimes,
   FaChevronLeft,
-  FaChevronRight
+  FaChevronRight,
+  FaEdit  // Added missing import
 } from 'react-icons/fa';
 import ResumeService from '../api/ResumeService';
 import DynamicResumeTemplate from './DynamicResumeTemplate';
@@ -480,9 +481,29 @@ const ResumeHistory = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadResume(resume);
+                                viewResume(resume);
                               }}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                              title="Preview"
+                            >
+                              <FaEye size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/resume/${resume.id}`);
+                              }}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              title="Edit Resume"
+                            >
+                              <FaEdit size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadResume(resume);
+                              }}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
                               title="Download JSON"
                             >
                               <FaDownload size={16} />

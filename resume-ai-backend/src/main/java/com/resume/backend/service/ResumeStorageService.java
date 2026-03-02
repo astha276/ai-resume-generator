@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 @Service
 public class ResumeStorageService {
 
@@ -196,6 +201,94 @@ public class ResumeStorageService {
 
         resume.setFavorite(!resume.isFavorite());
         resumeRepository.save(resume);
+    }
+
+    // Add this method to update generated content
+    @Transactional
+    public ResumeResponseDTO updateGeneratedContent(String userEmail, Long resumeId, String updatedContent) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Resume resume = resumeRepository.findByIdAndUser(resumeId, user)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        resume.setGeneratedContent(updatedContent);
+        Resume updatedResume = resumeRepository.save(resume);
+
+        System.out.println("✓ Resume content updated for ID: " + resumeId);
+        return convertToDTO(updatedResume);
+    }
+
+    // Add this method to update a specific section
+    @Transactional
+    public ResumeResponseDTO updateSection(String userEmail, Long resumeId, String section, String sectionContent) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Resume resume = resumeRepository.findByIdAndUser(resumeId, user)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        try {
+            // Parse existing content
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode fullContent = mapper.readTree(resume.getGeneratedContent());
+
+            // Create or update the specific section
+            ObjectNode contentNode;
+            if (fullContent.isObject()) {
+                contentNode = (ObjectNode) fullContent;
+            } else {
+                contentNode = mapper.createObjectNode();
+            }
+
+            // Parse the section content
+            JsonNode sectionNode = mapper.readTree(sectionContent);
+            contentNode.set(section, sectionNode);
+
+            // Save back
+            resume.setGeneratedContent(mapper.writeValueAsString(contentNode));
+            Resume updatedResume = resumeRepository.save(resume);
+
+            System.out.println("✓ Section '" + section + "' updated for resume ID: " + resumeId);
+            return convertToDTO(updatedResume);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update section: " + e.getMessage(), e);
+        }
+    }
+
+    // Add this method to add/remove skills
+    @Transactional
+    public ResumeResponseDTO updateSkills(String userEmail, Long resumeId, List<Map<String, String>> skills) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Resume resume = resumeRepository.findByIdAndUser(resumeId, user)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode fullContent = mapper.readTree(resume.getGeneratedContent());
+            ObjectNode contentNode = fullContent.isObject() ? (ObjectNode) fullContent : mapper.createObjectNode();
+
+            // Convert skills list to JsonNode
+            ArrayNode skillsNode = mapper.createArrayNode();
+            for (Map<String, String> skill : skills) {
+                ObjectNode skillNode = mapper.createObjectNode();
+                skillNode.put("title", skill.getOrDefault("title", ""));
+                skillNode.put("level", skill.getOrDefault("level", ""));
+                skillsNode.add(skillNode);
+            }
+
+            contentNode.set("skills", skillsNode);
+            resume.setGeneratedContent(mapper.writeValueAsString(contentNode));
+
+            Resume updatedResume = resumeRepository.save(resume);
+            return convertToDTO(updatedResume);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update skills: " + e.getMessage(), e);
+        }
     }
 
     public Map<String, Object> getUserStats(String userEmail) {

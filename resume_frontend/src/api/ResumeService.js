@@ -7,9 +7,11 @@ export const baseURL = "http://localhost:8080";
 export const axiosInstance = axios.create({
   baseURL: baseURL,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
   withCredentials: true,
+  timeout: 30000,
 });
 
 // Add a request interceptor to include token in all requests
@@ -19,9 +21,15 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🚀 ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data);
+    }
+    
     return config;
   },
   (error) => {
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -29,9 +37,21 @@ axiosInstance.interceptors.request.use(
 // Add a response interceptor to handle errors globally
 axiosInstance.interceptors.response.use(
   (response) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ ${response.status} ${response.config.url}`, response.data);
+    }
     return response;
   },
   (error) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Response Error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        message: error.message
+      });
+    }
+    
     if (error.response?.status === 401) {
       // Unauthorized - token expired or invalid
       localStorage.removeItem('token');
@@ -41,6 +61,15 @@ axiosInstance.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    
+    if (error.code === 'ECONNABORTED') {
+      return Promise.reject(new Error('Request timeout. Please try again.'));
+    }
+    
+    if (!error.response) {
+      return Promise.reject(new Error('Network error. Please check if backend is running.'));
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -56,6 +85,8 @@ export const register = async (userData) => {
       fullName: userData.fullName,
       email: userData.email,
       password: userData.password
+    }, {
+      headers: { 'Content-Type': 'application/json' }
     });
     
     if (response.data.token) {
@@ -69,7 +100,12 @@ export const register = async (userData) => {
     
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Registration failed' };
+    console.error('Registration error:', error);
+    const errorMessage = error.response?.data?.message || 
+                        error.response?.data?.error || 
+                        error.message || 
+                        'Registration failed';
+    throw new Error(errorMessage);
   }
 };
 
@@ -79,6 +115,8 @@ export const login = async (credentials) => {
     const response = await axios.post(`${baseURL}/api/auth/login`, {
       email: credentials.email,
       password: credentials.password
+    }, {
+      headers: { 'Content-Type': 'application/json' }
     });
     
     if (response.data.token) {
@@ -92,7 +130,12 @@ export const login = async (credentials) => {
     
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Login failed' };
+    console.error('Login error:', error);
+    const errorMessage = error.response?.data?.message || 
+                        error.response?.data?.error || 
+                        error.message || 
+                        'Login failed';
+    throw new Error(errorMessage);
   }
 };
 
@@ -109,11 +152,16 @@ export const checkEmail = async (email) => {
 
 // Get current user from localStorage
 export const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user');
-  if (userStr) {
-    return JSON.parse(userStr);
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      return JSON.parse(userStr);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error parsing user data:', error);
+    return null;
   }
-  return null;
 };
 
 // Get token
@@ -136,11 +184,7 @@ export const logout = () => {
  * Resume Generation Service
  */
 
-/**
- * Calls the backend to generate a resume based on user description.
- * @param {string} description The professional description input by the user.
- * @returns {Promise<object>} A promise that resolves to the generated resume object.
- */
+// Generate new resume
 export const generateResume = async (description) => {
   try {
     const token = getToken();
@@ -153,12 +197,10 @@ export const generateResume = async (description) => {
       userDescription: description,
     });
     
-    // If response is string, try to parse it as JSON
     if (typeof response.data === 'string') {
       try {
         return JSON.parse(response.data);
       } catch (parseError) {
-        // If it's not valid JSON, return as is with a wrapper
         return { data: response.data };
       }
     }
@@ -168,35 +210,16 @@ export const generateResume = async (description) => {
     console.error('Resume generation error:', error);
     
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       throw new Error(error.response.data?.message || 'Server error: ' + error.response.status);
     } else if (error.request) {
-      // The request was made but no response was received
       throw new Error('No response from server. Please check if backend is running.');
     } else {
-      // Something happened in setting up the request that triggered an Error
       throw new Error(error.message || 'Failed to generate resume');
     }
   }
 };
 
-/**
- * Get user's resume history (if implemented in backend)
- */
-export const getResumeHistory = async () => {
-  try {
-    const response = await axiosInstance.get("/api/v1/resumes");
-    return response.data;
-  } catch (error) {
-    console.error('Failed to fetch resume history:', error);
-    throw error;
-  }
-};
-
-/**
- * Test AI connection
- */
+// Test AI connection
 export const testAIConnection = async () => {
   try {
     const response = await axios.get(`${baseURL}/api/v1/resume/test-ai`);
@@ -207,16 +230,175 @@ export const testAIConnection = async () => {
   }
 };
 
+/**
+ * ============================================
+ * RESUME HISTORY & MANAGEMENT SERVICE
+ * ============================================
+ */
+
+// Get all resumes for current user
+export const getResumeHistory = async () => {
+  try {
+    const response = await axiosInstance.get("/api/v1/resumes");
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching resume history:', error);
+    throw error;
+  }
+};
+
+// Get single resume by ID
+export const getResumeById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/api/v1/resumes/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching resume:', error);
+    throw error;
+  }
+};
+
+// Delete resume
+export const deleteResume = async (id) => {
+  try {
+    await axiosInstance.delete(`/api/v1/resumes/${id}`);
+  } catch (error) {
+    console.error('Error deleting resume:', error);
+    throw error;
+  }
+};
+
+// Update resume (title, tags, favorite)
+export const updateResume = async (id, updateData) => {
+  try {
+    const response = await axiosInstance.put(`/api/v1/resumes/${id}`, updateData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating resume:', error);
+    throw error;
+  }
+};
+
+// Update specific section of a resume
+export const updateResumeSection = async (id, section, content) => {
+  try {
+    const response = await axiosInstance.patch(`/api/v1/resumes/${id}/section`, {
+      section: section,
+      content: JSON.stringify(content)
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating section:', error);
+    throw error;
+  }
+};
+
+// Regenerate a specific section using AI
+export const regenerateSection = async (id, section, prompt, context = '') => {
+  try {
+    const response = await axiosInstance.post(`/api/v1/resumes/${id}/regenerate/${section}`, {
+      prompt: prompt,
+      context: context,
+      section: section
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error regenerating section:', error);
+    throw error;
+  }
+};
+
+// Update skills
+export const updateSkills = async (id, skills) => {
+  try {
+    const response = await axiosInstance.put(`/api/v1/resumes/${id}/skills`, skills);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating skills:', error);
+    throw error;
+  }
+};
+
+// Toggle favorite status
+export const toggleFavorite = async (id) => {
+  try {
+    await axiosInstance.patch(`/api/v1/resumes/${id}/favorite`);
+  } catch (error) {
+    console.error('Error toggling favorite:', error);
+    throw error;
+  }
+};
+
+// Get user statistics
+export const getResumeStats = async () => {
+  try {
+    const response = await axiosInstance.get("/api/v1/resumes/stats");
+    return response.data;
+  } catch (error) {
+    console.error('Error getting stats:', error);
+    throw error;
+  }
+};
+
+// Get recent resumes
+export const getRecentResumes = async (limit = 5) => {
+  try {
+    const response = await axiosInstance.get(`/api/v1/resumes/recent?limit=${limit}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching recent resumes:', error);
+    throw error;
+  }
+};
+
+// Get favorite resumes
+export const getFavoriteResumes = async () => {
+  try {
+    const response = await axiosInstance.get("/api/v1/resumes/favorites");
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    throw error;
+  }
+};
+
+// Search resumes
+export const searchResumes = async (query) => {
+  try {
+    const response = await axiosInstance.get(`/api/v1/resumes/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error searching resumes:', error);
+    throw error;
+  }
+};
+
 // Default export with all methods
 export default {
+  // Auth methods
   register,
   login,
   checkEmail,
-  generateResume,
-  getResumeHistory,
-  testAIConnection,
   getCurrentUser,
   getToken,
   isLoggedIn,
-  logout
+  logout,
+  
+  // Resume generation
+  generateResume,
+  testAIConnection,
+  
+  // Resume history & management
+  getResumeHistory,
+  getResumeById,
+  deleteResume,
+  updateResume,
+  updateResumeSection,
+  regenerateSection,
+  updateSkills,
+  toggleFavorite,
+  getResumeStats,
+  getRecentResumes,
+  getFavoriteResumes,
+  searchResumes
 };

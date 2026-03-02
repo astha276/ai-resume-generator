@@ -10,6 +10,7 @@ import Contact from './pages/Contact';
 import Services from './pages/Services';
 import NavBar from './components/NavBar';
 import ResumeHistory from './pages/ResumeHistory';
+import ResumeDetails from './pages/ResumeDetails';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -50,6 +51,15 @@ function App() {
                 <Route path="/resume-history" element={
                     <ProtectedRoute>
                         <ResumeHistory />
+                    </ProtectedRoute>
+                } />
+
+                
+
+                // Add this route
+                <Route path="/resume/:id" element={
+                    <ProtectedRoute>
+                        <ResumeDetails />
                     </ProtectedRoute>
                 } />
                 

@@ -240,4 +240,109 @@ public class ResumeServiceImpl implements ResumeService {
         error.put("status", "error");
         return error;
     }
+
+    @Override
+    public String regenerateSection(String userDescription, String section, String prompt, String context) {
+        System.out.println("========== REGENERATING SECTION ==========");
+        System.out.println("Section: " + section);
+        System.out.println("Prompt: " + prompt);
+
+        try {
+            // Create a targeted prompt for the specific section
+            String sectionPrompt = buildSectionPrompt(section, userDescription, prompt, context);
+
+            // Call Ollama
+            String ollamaResponse = callOllama(sectionPrompt);
+
+            // Parse and clean the response
+            JSONObject parsed = new JSONObject();
+            try {
+                // Try to extract JSON from response
+                String cleaned = cleanJsonResponse(ollamaResponse);
+                int jsonStart = cleaned.indexOf('{');
+                int jsonEnd = cleaned.lastIndexOf('}');
+
+                if (jsonStart != -1 && jsonEnd != -1) {
+                    String jsonContent = cleaned.substring(jsonStart, jsonEnd + 1);
+                    parsed = new JSONObject(jsonContent);
+                } else {
+                    // If no JSON, wrap the response
+                    parsed.put("content", ollamaResponse);
+                }
+            } catch (Exception e) {
+                parsed.put("content", ollamaResponse);
+                parsed.put("error", e.getMessage());
+            }
+
+            return parsed.toString(2);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JSONObject error = new JSONObject();
+            error.put("error", "Failed to regenerate section: " + e.getMessage());
+            return error.toString();
+        }
+    }
+
+    private String buildSectionPrompt(String section, String userDescription, String customPrompt, String context) {
+        StringBuilder prompt = new StringBuilder();
+
+        switch(section) {
+            case "summary":
+                prompt.append("Generate a professional summary for a resume based on this description: ")
+                        .append(userDescription).append("\n\n")
+                        .append("Return ONLY a JSON object with a 'motivation' field containing a compelling professional summary.");
+                break;
+
+            case "skills":
+                prompt.append("Generate technical skills for a resume based on this description: ")
+                        .append(userDescription).append("\n\n")
+                        .append("Return ONLY a JSON array of skills. Each skill should have 'title' and 'level' fields.");
+                break;
+
+            case "experience":
+                prompt.append("Generate work experience entries for a resume based on this description: ")
+                        .append(userDescription).append("\n\n")
+                        .append("Return ONLY a JSON array of experiences. Each experience should have 'jobTitle', 'company', 'location', 'duration', and 'responsibility' fields.");
+                break;
+
+            case "projects":
+                prompt.append("Generate project entries for a resume based on this description: ")
+                        .append(userDescription).append("\n\n")
+                        .append("Return ONLY a JSON array of projects. Each project should have 'title', 'description', and 'technologiesUsed' array.");
+                break;
+
+            default:
+                prompt.append(customPrompt);
+        }
+
+        if (context != null && !context.isEmpty()) {
+            prompt.append("\n\nAdditional context: ").append(context);
+        }
+
+        prompt.append("\n\nReturn ONLY valid JSON, no other text.");
+
+        return prompt.toString();
+    }
+
+    /**
+     * Calls Ollama API to generate text based on prompt
+     */
+    private String callOllama(String prompt) {
+        try {
+            // Since you're using Spring AI's ChatClient, we can reuse that
+            org.springframework.ai.chat.prompt.Prompt aiPrompt = new org.springframework.ai.chat.prompt.Prompt(prompt);
+            String response = chatClient.prompt(aiPrompt).call().content();
+
+            if (response == null) {
+                throw new RuntimeException("Ollama returned null response");
+            }
+
+            return response;
+
+        } catch (Exception e) {
+            System.err.println("Error calling Ollama: " + e.getMessage());
+            throw new RuntimeException("Failed to call Ollama: " + e.getMessage(), e);
+        }
+    }
 }

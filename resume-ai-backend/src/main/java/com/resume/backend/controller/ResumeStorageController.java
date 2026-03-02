@@ -12,8 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import com.resume.backend.dto.RegenerateSectionRequest;
+import com.resume.backend.service.ResumeService;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +27,9 @@ public class ResumeStorageController {
 
     @Autowired
     private ResumeStorageService resumeStorageService;
+
+    @Autowired
+    private ResumeService resumeService;
 
     // Save a new resume
     @PostMapping
@@ -217,4 +223,108 @@ public class ResumeStorageController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    // Update specific section of a resume
+    @PatchMapping("/{id}/section")
+    public ResponseEntity<?> updateSection(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String section = request.get("section");
+            String content = request.get("content");
+
+            if (section == null || content == null) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse(LocalDateTime.now(), 400, "Bad Request",
+                                "Section and content are required", "/api/v1/resumes/" + id + "/section"));
+            }
+
+            ResumeResponseDTO updated = resumeStorageService.updateSection(
+                    userDetails.getUsername(), id, section, content);
+
+            return ResponseEntity.ok(updated);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(LocalDateTime.now(), 500, "Update Failed",
+                            e.getMessage(), "/api/v1/resumes/" + id + "/section"));
+        }
+    }
+
+    // Regenerate a specific section using AI
+    @PostMapping("/{id}/regenerate/{section}")
+    public ResponseEntity<?> regenerateSection(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @PathVariable String section,
+            @RequestBody RegenerateSectionRequest request) {
+
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            // Get the current resume to use as context
+            ResumeResponseDTO resume = resumeStorageService.getResumeById(userDetails.getUsername(), id);
+
+            // Call AI service to regenerate the section
+            String regeneratedContent = resumeService.regenerateSection(
+                    resume.getUserDescription(),
+                    section,
+                    request.getPrompt(),
+                    request.getContext()
+            );
+
+            // Update the resume with the new section
+            ResumeResponseDTO updated = resumeStorageService.updateSection(
+                    userDetails.getUsername(), id, section, regeneratedContent);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("section", section);
+            response.put("content", regeneratedContent);
+            response.put("resume", updated);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(LocalDateTime.now(), 500, "Regeneration Failed",
+                            e.getMessage(), "/api/v1/resumes/" + id + "/regenerate/" + section));
+        }
+    }
+
+    // Update skills (special handling for array)
+    @PutMapping("/{id}/skills")
+    public ResponseEntity<?> updateSkills(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody List<Map<String, String>> skills) {
+
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            ResumeResponseDTO updated = resumeStorageService.updateSkills(
+                    userDetails.getUsername(), id, skills);
+
+            return ResponseEntity.ok(updated);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(LocalDateTime.now(), 500, "Skills Update Failed",
+                            e.getMessage(), "/api/v1/resumes/" + id + "/skills"));
+        }
+    }
+
+
 }
