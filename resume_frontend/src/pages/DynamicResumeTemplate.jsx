@@ -1,329 +1,416 @@
 import React, { useRef } from 'react';
-import { 
-  FaEnvelope, 
-  FaPhone, 
-  FaLinkedin, 
-  FaGithub, 
-  FaMapMarkerAlt,
-  FaCalendarAlt,
-  FaTrophy,
-  FaGlobe,
-  FaAward,
-  FaDownload,
-  FaPrint,
-  FaCode,
-  FaBriefcase,
-  FaGraduationCap
-} from 'react-icons/fa';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+
+const safeString = (value, defaultValue = '') => {
+  if (value === null || value === undefined) return defaultValue;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return value.toString();
+  return defaultValue;
+};
+
+const safeArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [];
+};
+
+const Section = ({ title, icon, children }) => (
+  <section style={{ marginBottom: '2rem' }}>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem',
+      marginBottom: '1rem',
+      borderBottom: '2px solid #E2E8F0',
+      paddingBottom: '0.5rem'
+    }}>
+      <span style={{ fontSize: '1rem' }}>{icon}</span>
+      <h2 style={{
+        fontSize: '0.7rem',
+        fontWeight: '800',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        color: '#1A202C',
+        margin: 0,
+        fontFamily: "'DM Sans', sans-serif"
+      }}>{title}</h2>
+    </div>
+    {children}
+  </section>
+);
+
+const Tag = ({ children, color = '#2563EB' }) => (
+  <span style={{
+    fontSize: '0.65rem',
+    fontWeight: '700',
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    padding: '0.2rem 0.6rem',
+    borderRadius: '3px',
+    background: `${color}12`,
+    color: color,
+    border: `1px solid ${color}30`,
+    fontFamily: "'DM Sans', sans-serif"
+  }}>{children}</span>
+);
 
 const DynamicResumeTemplate = ({ jsonData }) => {
   const resumeRef = useRef(null);
 
   if (!jsonData) {
-    return <div className="text-center p-4">No resume data available to display.</div>;
+    return <div style={{ textAlign: 'center', padding: '2rem' }}>No resume data available.</div>;
   }
 
-  // Handle the nested structure - data is inside a "resume" object
-  const data = jsonData.resume || jsonData;
-  
-  // Extract all sections
+  const data = jsonData.data || jsonData;
   const personalInfo = data.personalInformation || {};
-  const skills = data.skills || [];
-  const summary = data.summary || '';
-  const education = data.education || {};
-  const portfolio = data.portfolio || [];
-  const experience = data.experience || [];
-  const certifications = data.certifications || {};
-  const achievements = jsonData.achievements || [];
-  const languages = jsonData.languages || [];
-  const interests = jsonData.interests || [];
+  const skills = safeArray(data.skills);
+  const projects = safeArray(data.projects);
+  const experience = safeArray(data.experience);
+  const education = safeArray(data.education);
+  const certifications = safeArray(data.certifications);
+  const achievements = safeArray(data.achievements);
+  const interests = safeArray(data.interests);
 
-  // Format certifications
-  const certificationsList = [];
-  if (certifications.certification) {
-    const certArray = Array.isArray(certifications.certification) 
-      ? certifications.certification 
-      : [certifications.certification];
-    
-    certArray.forEach((cert, index) => {
-      certificationsList.push({
-        title: cert,
-        year: certifications.year?.[index] || '',
-        issuer: certifications.issuingOrganization?.[index] || ''
-      });
-    });
-  }
+  // Derive job title from first experience entry
+  const jobTitle = experience[0]?.jobTitle?.includes(' at ')
+    ? experience[0].jobTitle.split(' at ')[0]
+    : experience[0]?.jobTitle || '';
 
-  const downloadAsPDF = async () => {
-  if (!resumeRef.current) return;
-  
-  try {
-    // Use a simpler approach - just use browser's print with PDF destination
-    window.print();
-    
-  } catch (error) {
-    console.error('Error:', error);
-    alert('Please use the Print button to save as PDF');
-  }
-};
+  const styles = {
+    page: {
+      background: '#F7F8FC',
+      minHeight: '100vh',
+      padding: '2rem 1rem',
+      fontFamily: "'DM Sans', sans-serif",
+    },
+    actionBar: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
+      background: 'white',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+      padding: '0.75rem 1rem',
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '0.75rem',
+      marginBottom: '1.5rem',
+    },
+    btnPdf: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.4rem',
+      background: '#1A202C',
+      color: 'white',
+      border: 'none',
+      padding: '0.5rem 1.2rem',
+      borderRadius: '6px',
+      fontWeight: '700',
+      fontSize: '0.8rem',
+      cursor: 'pointer',
+      letterSpacing: '0.04em',
+    },
+    btnPrint: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.4rem',
+      background: 'white',
+      color: '#1A202C',
+      border: '2px solid #1A202C',
+      padding: '0.5rem 1.2rem',
+      borderRadius: '6px',
+      fontWeight: '700',
+      fontSize: '0.8rem',
+      cursor: 'pointer',
+      letterSpacing: '0.04em',
+    },
+    paper: {
+      background: 'white',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.10)',
+      maxWidth: '860px',
+      margin: '0 auto',
+      display: 'grid',
+      gridTemplateColumns: '260px 1fr',
+      minHeight: '1100px',
+    },
+    sidebar: {
+      background: '#1A202C',
+      color: 'white',
+      padding: '2.5rem 1.5rem',
+    },
+    main: {
+      padding: '2.5rem 2rem',
+    },
+  };
 
   return (
-    <div className="relative">
-      {/* Download Buttons */}
-      <div className="sticky top-0 z-10 bg-white shadow-md p-4 mb-6 flex justify-end space-x-4 print:hidden">
-        <button
-          onClick={downloadAsPDF}
-          className="flex items-center space-x-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
-        >
-          <FaDownload />
-          <span>Download PDF</span>
+    <div style={styles.page}>
+      {/* Google Fonts */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Playfair+Display:wght@700;800&display=swap');
+        @media print {
+          .no-print { display: none !important; }
+          body { margin: 0; }
+        }
+      `}</style>
+
+      {/* Action Bar */}
+      <div className="no-print" style={styles.actionBar}>
+        <button style={styles.btnPdf} onClick={() => window.print()}>
+          ⬇ Save as PDF
         </button>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
-        >
-          <FaPrint />
-          <span>Print</span>
+        <button style={styles.btnPrint} onClick={() => window.print()}>
+          🖨 Print
         </button>
       </div>
 
-      {/* Resume Content */}
-      <div 
-        ref={resumeRef}
-        className="bg-white shadow-xl p-8 max-w-4xl mx-auto print:shadow-none font-sans"
-      >
-        {/* Header */}
-        <div className="border-b-4 border-blue-600 pb-6 mb-6">
-          <h1 className="text-4xl font-bold text-gray-800">
-            {personalInfo.name || 'Your Name'}
+      {/* Resume Paper - Two Column */}
+      <div ref={resumeRef} style={styles.paper}>
+
+        {/* ── SIDEBAR ── */}
+        <aside style={styles.sidebar}>
+
+          {/* Avatar Initials */}
+          <div style={{
+            width: '72px', height: '72px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #4F8EF7 0%, #A78BFA 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '1.6rem', fontWeight: '800', color: 'white',
+            marginBottom: '1.2rem',
+            letterSpacing: '-0.02em'
+          }}>
+            {(personalInfo.fullName || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+          </div>
+
+          {/* Name */}
+          <h1 style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: '1.45rem',
+            fontWeight: '800',
+            color: 'white',
+            lineHeight: 1.15,
+            margin: '0 0 0.3rem 0',
+          }}>
+            {safeString(personalInfo.fullName, 'Your Name')}
           </h1>
-          <p className="text-xl text-blue-600 mt-2 font-medium">
-            {personalInfo.title || 'Software Developer'}
-          </p>
-          
-          {/* Contact Info Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm text-gray-600">
-            {personalInfo.email && (
-              <div className="flex items-center gap-2">
-                <FaEnvelope className="text-blue-600 flex-shrink-0" />
-                <span>{personalInfo.email}</span>
-              </div>
-            )}
-            {personalInfo.phoneNumber && (
-              <div className="flex items-center gap-2">
-                <FaPhone className="text-blue-600 flex-shrink-0" />
-                <span>{personalInfo.phoneNumber}</span>
-              </div>
-            )}
-            {personalInfo.location && (
-              <div className="flex items-center gap-2">
-                <FaMapMarkerAlt className="text-blue-600 flex-shrink-0" />
-                <span>{personalInfo.location}</span>
-              </div>
-            )}
-            {personalInfo.linkedin && (
-              <div className="flex items-center gap-2">
-                <FaLinkedin className="text-blue-600 flex-shrink-0" />
-                <a href={personalInfo.linkedin} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">
-                  {personalInfo.linkedin.replace('https://', '')}
-                </a>
-              </div>
-            )}
-            {personalInfo.github && (
-              <div className="flex items-center gap-2">
-                <FaGithub className="text-blue-600 flex-shrink-0" />
-                <a href={`https://${personalInfo.github}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                  {personalInfo.github}
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Summary */}
-        {summary && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              Professional Summary
-            </h2>
-            <p className="text-gray-700 leading-relaxed pl-4">{summary}</p>
-          </div>
-        )}
+          {/* Title */}
+          {jobTitle && (
+            <p style={{
+              fontSize: '0.75rem',
+              fontWeight: '600',
+              color: '#7DD3FC',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              marginBottom: '1.5rem',
+            }}>{jobTitle}</p>
+          )}
 
-        {/* Skills */}
-        {skills.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              Technical Skills
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-4">
-              {skills.map((skill, index) => (
-                <div key={index} className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <div>
-                    <span className="font-medium text-gray-800">{skill.title}</span>
-                    {skill.level && (
-                      <span className="text-sm text-gray-500 ml-2">({skill.level})</span>
+          {/* Divider */}
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', marginBottom: '1.5rem' }} />
+
+          {/* Contact */}
+          <div style={{ marginBottom: '1.8rem' }}>
+            <p style={{ fontSize: '0.6rem', fontWeight: '800', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: '0.8rem' }}>Contact</p>
+            {[
+              { icon: '✉', val: personalInfo.email, href: `mailto:${personalInfo.email}` },
+              { icon: '☎', val: personalInfo.phoneNumber },
+              { icon: '📍', val: personalInfo.location },
+              { icon: '💼', val: personalInfo.linkedin ? personalInfo.linkedin.replace('https://', '').replace('http://', '') : null, href: personalInfo.linkedin },
+              { icon: '⌥', val: personalInfo.githubHub, href: `https://${personalInfo.githubHub}` },
+              { icon: '🌐', val: personalInfo.portfolio },
+            ].filter(c => c.val).map((c, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.7rem', marginTop: '1px', opacity: 0.7 }}>{c.icon}</span>
+                {c.href
+                  ? <a href={c.href} target="_blank" rel="noreferrer" style={{ fontSize: '0.72rem', color: '#E2E8F0', wordBreak: 'break-all', textDecoration: 'none', lineHeight: 1.4 }}>{c.val}</a>
+                  : <span style={{ fontSize: '0.72rem', color: '#E2E8F0', wordBreak: 'break-all', lineHeight: 1.4 }}>{c.val}</span>
+                }
+              </div>
+            ))}
+          </div>
+
+          {/* Skills */}
+          {skills.length > 0 && (
+            <div style={{ marginBottom: '1.8rem' }}>
+              <p style={{ fontSize: '0.6rem', fontWeight: '800', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: '0.8rem' }}>Skills</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {skills.map((skill, i) => (
+                  <div key={i}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'white' }}>{skill.title}</span>
+                    </div>
+                    <div style={{ fontSize: '0.6rem', color: '#94A3B8', letterSpacing: '0.03em' }}>{skill.level}</div>
+                    <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '0.25rem' }}>
+                      <div style={{
+                        height: '100%',
+                        borderRadius: '2px',
+                        background: 'linear-gradient(90deg, #4F8EF7, #A78BFA)',
+                        width: skill.level?.toLowerCase().includes('senior') ? '90%'
+                          : skill.level?.toLowerCase().includes('intermediate') ? '65%'
+                          : '50%'
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Education in sidebar */}
+          {education.length > 0 && (
+            <div style={{ marginBottom: '1.8rem' }}>
+              <p style={{ fontSize: '0.6rem', fontWeight: '800', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: '0.8rem' }}>Education</p>
+              {education.map((edu, i) => (
+                <div key={i} style={{ marginBottom: '0.8rem' }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'white', margin: '0 0 0.15rem 0' }}>{edu.degree}</p>
+                  <p style={{ fontSize: '0.7rem', color: '#7DD3FC', margin: '0 0 0.1rem 0' }}>{edu.university}</p>
+                  <p style={{ fontSize: '0.65rem', color: '#64748B', margin: 0 }}>{edu.location} · {edu.graduationYear}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Interests */}
+          {interests.length > 0 && (
+            <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: '800', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: '0.8rem' }}>Interests</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                {interests.map((item, i) => (
+                  <span key={i} style={{
+                    fontSize: '0.65rem', fontWeight: '600',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#CBD5E1', padding: '0.2rem 0.55rem',
+                    borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)'
+                  }}>
+                    {item.name || item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* ── MAIN CONTENT ── */}
+        <main style={styles.main}>
+
+          {/* Summary */}
+          {personalInfo.summary && (
+            <Section title="Professional Summary" icon="◈">
+              <p style={{
+                fontSize: '0.85rem', color: '#475569', lineHeight: 1.75,
+                borderLeft: '3px solid #4F8EF7', paddingLeft: '0.9rem',
+                margin: 0, fontStyle: 'italic'
+              }}>
+                {personalInfo.summary}
+              </p>
+            </Section>
+          )}
+
+          {/* Experience */}
+          {experience.length > 0 && (
+            <Section title="Work Experience" icon="◈">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
+                {experience.map((exp, i) => {
+                  const title = exp.jobTitle?.includes(' at ') ? exp.jobTitle.split(' at ')[0] : exp.jobTitle;
+                  return (
+                    <div key={i} style={{ position: 'relative', paddingLeft: '1rem', borderLeft: '3px solid #E2E8F0' }}>
+                      <div style={{ position: 'absolute', left: '-5px', top: '4px', width: '7px', height: '7px', borderRadius: '50%', background: '#4F8EF7' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#1A202C' }}>{title}</h3>
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: '700', color: '#4F8EF7',
+                          background: '#EFF6FF', padding: '0.15rem 0.55rem', borderRadius: '20px',
+                          border: '1px solid #DBEAFE', letterSpacing: '0.04em'
+                        }}>{exp.duration}</span>
+                      </div>
+                      <p style={{ margin: '0.2rem 0 0.5rem 0', fontSize: '0.78rem', fontWeight: '700', color: '#4F8EF7' }}>
+                        {exp.company}{exp.location ? ` · ${exp.location}` : ''}
+                      </p>
+                      {exp.responsibility && (
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', lineHeight: 1.65 }}>
+                          {exp.responsibility}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* Projects */}
+          {projects.length > 0 && (
+            <Section title="Key Projects" icon="◈">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {projects.map((proj, i) => (
+                  <div key={i} style={{
+                    background: '#F8FAFC', border: '1px solid #E2E8F0',
+                    borderRadius: '8px', padding: '1rem',
+                    borderLeft: '4px solid #4F8EF7'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '0.88rem', fontWeight: '800', color: '#1A202C' }}>{proj.title}</h3>
+                      {proj.githubLink && (
+                        <a href={proj.githubLink} target="_blank" rel="noreferrer" style={{ fontSize: '0.65rem', color: '#4F8EF7', fontWeight: '700', textDecoration: 'none' }}>
+                          ⌥ GitHub ↗
+                        </a>
+                      )}
+                    </div>
+                    {proj.description && (
+                      <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.78rem', color: '#475569', lineHeight: 1.6 }}>{proj.description}</p>
+                    )}
+                    {safeArray(proj.technologiesUsed).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                        {safeArray(proj.technologiesUsed).map((tech, j) => (
+                          <Tag key={j} color="#2563EB">{tech}</Tag>
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                ))}
+              </div>
+            </Section>
+          )}
 
-        {/* Work Experience */}
-        {experience.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              <FaBriefcase className="mr-2 text-blue-600" /> Work Experience
-            </h2>
-            <div className="space-y-6 pl-4">
-              {experience.map((exp, index) => (
-                <div key={index} className="border-l-2 border-gray-200 pl-4">
-                  <div className="flex flex-wrap justify-between items-start mb-2">
-                    <h3 className="text-lg font-bold text-gray-800">{exp.jobTitle}</h3>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                      {exp.duration}
-                    </span>
-                  </div>
-                  <p className="text-blue-600 font-medium mb-2">{exp.company} • {exp.location}</p>
-                  <p className="text-gray-700 text-sm leading-relaxed">{exp.responsibility}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Projects / Portfolio */}
-        {portfolio.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              <FaCode className="mr-2 text-blue-600" /> Projects
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
-              {portfolio.map((project, index) => (
-                <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-bold text-gray-800 mb-2">{project.title}</h3>
-                  <p className="text-sm text-gray-700 mb-2">{project.description}</p>
-                  {project.technologiesUsed && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {project.technologiesUsed.map((tech, i) => (
-                        <span key={i} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Education */}
-        {education.degree && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              <FaGraduationCap className="mr-2 text-blue-600" /> Education
-            </h2>
-            <div className="pl-4">
-              <h3 className="text-lg font-bold text-gray-800">{education.degree}</h3>
-              <p className="text-blue-600 font-medium">{education.university}</p>
-              <p className="text-sm text-gray-500">{education.location}</p>
-              <p className="text-sm text-gray-600 mt-1">Graduation: {education.graduationYear}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Certifications */}
-        {certificationsList.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              <FaAward className="mr-2 text-blue-600" /> Certifications
-            </h2>
-            <ul className="space-y-2 pl-4 list-disc">
-              {certificationsList.map((cert, index) => (
-                <li key={index} className="text-gray-700">
-                  <span className="font-medium">{cert.title}</span>
-                  {cert.issuer && <span className="text-gray-600"> - {cert.issuer}</span>}
-                  {cert.year && <span className="text-gray-500 text-sm ml-2">({cert.year})</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Achievements */}
-        {achievements.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              <FaTrophy className="mr-2 text-blue-600" /> Achievements
-            </h2>
-            <div className="space-y-3 pl-4">
-              {achievements.map((ach, index) => (
-                <div key={index} className="border-b border-gray-100 pb-2 last:border-0">
-                  <div className="flex items-start">
-                    <span className="text-blue-600 mr-2">🏆</span>
+          {/* Certifications */}
+          {certifications.length > 0 && (
+            <Section title="Certifications" icon="◈">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                {certifications.map((cert, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                    background: '#FFFBEB', border: '1px solid #FDE68A',
+                    padding: '0.6rem 0.8rem', borderRadius: '6px'
+                  }}>
+                    <span style={{ fontSize: '0.9rem', marginTop: '1px' }}>🏅</span>
                     <div>
-                      <span className="font-medium text-gray-800">{ach.title}</span>
-                      {ach.year && <span className="text-gray-500 text-sm ml-2">({ach.year})</span>}
-                      {ach.extraInformation && (
-                        <p className="text-sm text-gray-600 mt-1">{ach.extraInformation}</p>
+                      <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '700', color: '#1A202C', lineHeight: 1.3 }}>{cert.title}</p>
+                      {cert.issuingOrganization && (
+                        <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.65rem', color: '#92400E' }}>{cert.issuingOrganization}</p>
                       )}
-                      {ach.other && (
-                        <p className="text-sm text-gray-600 mt-1">{ach.other}</p>
-                      )}
+                      <p style={{ margin: '0.1rem 0 0 0', fontSize: '0.65rem', color: '#92400E', fontWeight: '600' }}>{cert.year}</p>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                ))}
+              </div>
+            </Section>
+          )}
 
-        {/* Languages */}
-        {languages.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              <FaGlobe className="mr-2 text-blue-600" /> Languages
-            </h2>
-            <div className="flex flex-wrap gap-3 pl-4">
-              {languages.map((lang, index) => (
-                <span key={index} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
-                  {lang.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+          {/* Achievements */}
+          {achievements.length > 0 && (
+            <Section title="Achievements" icon="◈">
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {achievements.map((ach, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: '#334155' }}>
+                    <span style={{ color: '#F59E0B', fontSize: '0.9rem' }}>★</span>
+                    {ach.title}{ach.year ? ` (${ach.year})` : ''}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
-        {/* Interests */}
-        {interests.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
-              <span className="w-1 h-6 bg-blue-600 mr-3"></span>
-              Interests
-            </h2>
-            <div className="flex flex-wrap gap-2 pl-4">
-              {interests.map((interest, index) => (
-                <span key={index} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
-                  {interest.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        </main>
       </div>
     </div>
   );

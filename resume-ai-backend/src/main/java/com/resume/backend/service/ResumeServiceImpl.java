@@ -172,33 +172,65 @@ public class ResumeServiceImpl implements ResumeService {
         JSONObject jsonResponse = new JSONObject();
 
         if (response == null || response.trim().isEmpty()) {
-            jsonResponse.put("data", JSONObject.NULL);
-            jsonResponse.put("warning", "Empty response from AI");
+            jsonResponse.put("error", "Empty response from AI");
             return jsonResponse;
         }
 
-        int jsonStart = response.indexOf('{');
-        int jsonEnd = response.lastIndexOf('}');
+        try {
+            // First, try to clean the response
+            String cleaned = cleanJsonResponse(response);
+            System.out.println("Cleaned response: " + cleaned);
 
-        if (jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd) {
-            String jsonContent = response.substring(jsonStart, jsonEnd + 1).trim();
-            try {
-                JSONObject dataContent = new JSONObject(jsonContent);
-                jsonResponse.put("data", dataContent);
-                System.out.println("Successfully parsed JSON from response");
-            } catch (Exception e) {
+            // Try to find JSON object in the response
+            int jsonStart = cleaned.indexOf('{');
+            int jsonEnd = cleaned.lastIndexOf('}');
+
+            if (jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd) {
+                String jsonContent = cleaned.substring(jsonStart, jsonEnd + 1).trim();
+                System.out.println("Extracted JSON content: " + jsonContent);
+
+                try {
+                    JSONObject dataContent = new JSONObject(jsonContent);
+                    jsonResponse.put("data", dataContent);
+                    jsonResponse.put("status", "success");
+                    System.out.println("✓ Successfully parsed JSON");
+                } catch (Exception e) {
+                    System.err.println("✗ Error parsing JSON: " + e.getMessage());
+                    jsonResponse.put("data", JSONObject.NULL);
+                    jsonResponse.put("parse_error", e.getMessage());
+                    jsonResponse.put("raw_response", response);
+                    jsonResponse.put("status", "parse_error");
+                }
+            } else {
                 jsonResponse.put("data", JSONObject.NULL);
-                jsonResponse.put("parse_error", e.getMessage());
-                jsonResponse.put("raw_response", response.substring(0, Math.min(200, response.length())));
-                System.err.println("Invalid JSON format: " + e.getMessage());
+                jsonResponse.put("error", "No JSON object found");
+                jsonResponse.put("raw_response", response);
+                jsonResponse.put("status", "no_json");
             }
-        } else {
+        } catch (Exception e) {
+            System.err.println("✗ Unexpected error in parseMultipleResponses: " + e.getMessage());
+            e.printStackTrace();
             jsonResponse.put("data", JSONObject.NULL);
-            jsonResponse.put("warning", "No JSON object found in response");
-            jsonResponse.put("raw_response", response.substring(0, Math.min(200, response.length())));
+            jsonResponse.put("error", e.getMessage());
+            jsonResponse.put("raw_response", response);
+            jsonResponse.put("status", "error");
         }
 
         return jsonResponse;
+    }
+
+    private static String cleanJsonResponse(String response) {
+        // Remove markdown code blocks
+        response = response.replaceAll("```json", "").replaceAll("```", "");
+
+        // Fix common JSON errors
+        response = response.replaceAll(",\\s*}", "}"); // Remove trailing commas
+        response = response.replaceAll(",\\s*]", "]"); // Remove trailing commas in arrays
+
+        // Fix the specific error we saw: {"fullName": {"John Doe", ...}}
+        response = response.replaceAll("\\{\\s*\"([^\"]+)\"\\s*:\\s*\\{\\s*\"([^\"]+)\"\\s*,", "{\"$1\": \"$2\",");
+
+        return response.trim();
     }
 
     private JSONObject createErrorResponse(String message) {

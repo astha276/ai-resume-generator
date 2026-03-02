@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,14 +55,32 @@ public class ResumeStorageService {
 
     @Transactional
     public ResumeResponseDTO saveGeneratedResume(String userEmail, String description, String generatedContent, String title) {
+        System.out.println("========== SAVING RESUME ==========");
+        System.out.println("User: " + userEmail);
+        System.out.println("Title: " + title);
+
+        // Validate JSON before saving
+        try {
+            // Try to parse the JSON to ensure it's valid
+            objectMapper.readTree(generatedContent);
+            System.out.println("✓ JSON is valid");
+        } catch (Exception e) {
+            System.err.println("✗ Invalid JSON detected!");
+            System.err.println("Error: " + e.getMessage());
+            System.err.println("Content: " + generatedContent);
+
+            // Reject the save with invalid JSON
+            throw new RuntimeException("Cannot save invalid JSON: " + e.getMessage());
+        }
+
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Create a title if not provided
         if (title == null || title.isEmpty()) {
-            title = description.length() > 50
+            title = description != null && description.length() > 50
                     ? description.substring(0, 50) + "..."
-                    : description;
+                    : (description != null ? description : "Resume - " + LocalDate.now());
         }
 
         Resume resume = new Resume();
@@ -74,6 +93,8 @@ public class ResumeStorageService {
         resume.setFavorite(false);
 
         Resume savedResume = resumeRepository.save(resume);
+        System.out.println("✓ Resume saved with ID: " + savedResume.getId());
+
         return convertToDTO(savedResume);
     }
 
