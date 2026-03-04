@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import Register from './pages/Register';
 import GenerateResume from './pages/GenerateResume';
-import ResumePreview from './pages/ResumePreview'; // Make sure this import exists
+import ResumePreview from './pages/ResumePreview';
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -11,6 +11,7 @@ import Services from './pages/Services';
 import NavBar from './components/NavBar';
 import ResumeHistory from './pages/ResumeHistory';
 import ResumeDetails from './pages/ResumeDetails';
+import ResumeAnalysis from './pages/ResumeAnalysis';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -41,7 +42,6 @@ function App() {
                     </ProtectedRoute>
                 } />
                 
-                {/* Add this route - IMPORTANT */}
                 <Route path="/resume-preview" element={
                     <ProtectedRoute>
                         <ResumePreview />
@@ -54,12 +54,15 @@ function App() {
                     </ProtectedRoute>
                 } />
 
-                
-
-                // Add this route
                 <Route path="/resume/:id" element={
                     <ProtectedRoute>
                         <ResumeDetails />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/resume-analysis" element={
+                    <ProtectedRoute>
+                        <ResumeAnalysis />
                     </ProtectedRoute>
                 } />
                 

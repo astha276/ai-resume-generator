@@ -11,7 +11,7 @@ export const axiosInstance = axios.create({
     'Accept': 'application/json'
   },
   withCredentials: true,
-  timeout: 30000,
+  timeout: 1200000,
 });
 
 // Add a request interceptor to include token in all requests
@@ -373,6 +373,30 @@ export const searchResumes = async (query) => {
   }
 };
 
+// Add these to your existing ResumeService.js
+
+// Analyze resume for job target
+export const analyzeResumeForJob = async (request) => {
+  try {
+    const response = await axiosInstance.post("/api/v1/suggestions/analyze", request);
+    return response.data;
+  } catch (error) {
+    console.error('Error analyzing resume:', error);
+    throw error;
+  }
+};
+
+// Get sample suggestions (for testing)
+export const getSampleSuggestions = async () => {
+  try {
+    const response = await axiosInstance.get("/api/v1/suggestions/sample");
+    return response.data;
+  } catch (error) {
+    console.error('Error getting sample:', error);
+    throw error;
+  }
+};
+
 // Default export with all methods
 export default {
   // Auth methods
@@ -400,5 +424,8 @@ export default {
   getResumeStats,
   getRecentResumes,
   getFavoriteResumes,
-  searchResumes
+  searchResumes,
+
+  analyzeResumeForJob,
+  getSampleSuggestions
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaHistory } from 'react-icons/fa';
+import { FaHistory, FaChartLine } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 function NavBar(){
@@ -17,8 +17,9 @@ function NavBar(){
                         <li><Link to="/about">About</Link></li>
                         <li><Link to="/services">Services</Link></li>
                         <li><Link to="/contact">Contact Us</Link></li>
-                        {/* History link in mobile menu */}
+                        {/* Mobile menu links */}
                         <li><Link to="/resume-history" className="flex items-center gap-2"><FaHistory />History</Link></li>
+                        <li><Link to="/resume-analysis" className="flex items-center gap-2"><FaChartLine />Job Match</Link></li>
                     </ul>
                 </div>
                 <Link to="/" className="btn btn-ghost text-xl">AI Resume Maker</Link>
@@ -34,13 +35,21 @@ function NavBar(){
             </div>
             
             <div className="navbar-end flex items-center gap-2">
-                {/* History link for desktop */}
+                {/* Desktop links */}
                 <Link 
                     to="/resume-history" 
                     className="hidden lg:flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-50 transition"
                 >
                     <FaHistory />
                     <span>History</span>
+                </Link>
+                
+                <Link 
+                    to="/resume-analysis" 
+                    className="hidden lg:flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-50 transition"
+                >
+                    <FaChartLine />
+                    <span>Job Match</span>
                 </Link>
                 
                 <Link to="/Login" className="btn btn-ghost">Login</Link>
