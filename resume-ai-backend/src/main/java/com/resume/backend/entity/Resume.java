@@ -12,16 +12,16 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "resumes")
 @Data  // This Lombok annotation generates getters, setters, toString, etc.
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor // a constructr with no parameters 
+@AllArgsConstructor // a constructor with all fields as parameters
 public class Resume {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+ 
+    @ManyToOne(fetch = FetchType.LAZY) //many users to one resume. Lazy- user data loaded only when needed.
+    @JoinColumn(name = "user_id", nullable = false) // Creates foreign key column user_id.
     private User user;
 
     @Column(name = "resume_title", nullable = false, length = 255)
@@ -45,6 +45,7 @@ public class Resume {
     @Column(name = "tags", length = 500)
     private String tags;
 
+    // can also use prePersist and preUpdate here 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

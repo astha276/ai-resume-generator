@@ -1,3 +1,7 @@
+// responsible for CRUD operations. create, read, update, delete resumes and managing there json content 
+/*Manages resume CRUD
+Validates & processes JSON content
+Connects Controller <-> Repository */
 package com.resume.backend.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -27,35 +31,45 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-@Service
+@Service // automatically creates object and manages it
+/*
+1.Spring sees @Service
+2.Creates a bean of UserService
+3.When it sees @Autowired, it:
+    Looks for a matching bean
+    Injects it automatically into UserController */
 public class ResumeStorageService {
 
-    @Autowired
-    private ResumeRepository resumeRepository;
+    @Autowired // dependency injection of resumeRepository
+    private ResumeRepository resumeRepository; //queries are there in the repository interface. we just call those methods here.
 
     @Autowired
     private UserRepository userRepository;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private ObjectMapper objectMapper; // for JSON parsing. it converts java object to json strings.
 
-    @Transactional
-    public ResumeResponseDTO saveResume(String userEmail, ResumeSaveRequest request) {
+    @Transactional // ensures that the entire method runs in a transaction. if any exception occurs, it rolls back all changes to maintain data integrity.
+    public ResumeResponseDTO saveResume(String userEmail, ResumeSaveRequest request) { // used when saving from the UI, where we have a structured request object
+        // dto - data transfer object. we use it to transfer data between layers.(contoller <-> server <-> client)
+        // Instead of sending your database entity (Resume) directly: You create a separate object (DTO)
+        // help decouple the internal entity structure from the API and ensure only required and safe data is sent between client and server
+        // this is coming from frontend to save the resume
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
+        // dto gives resume from frontend -> resume entity gets the data from dto -> resume entity is saved to database through repository -> saved resume entity is converted back to dto and sent to frontend. 
         Resume resume = new Resume();
-        resume.setUser(user);
+        resume.setUser(user); // gotten these from @data in Resume 
         resume.setTitle(request.getTitle());
         resume.setUserDescription(request.getUserDescription());
         resume.setGeneratedContent(request.getGeneratedContent());
         resume.setTags(request.getTags());
         resume.setFavorite(request.isFavorite());
         resume.setFileFormat(request.getFileFormat() != null ? request.getFileFormat() : "json");
-        resume.setAiModel("deepseek-r1:1.5b");
+        resume.setAiModel("deepseek-r1:1.5b"); 
 
-        Resume savedResume = resumeRepository.save(resume);
-        return convertToDTO(savedResume);
+        Resume savedResume = resumeRepository.save(resume);// .save from JpaRepository. resumerepository inherits from JpaRepository.
+        return convertToDTO(savedResume); // function defined below
     }
 
     @Transactional

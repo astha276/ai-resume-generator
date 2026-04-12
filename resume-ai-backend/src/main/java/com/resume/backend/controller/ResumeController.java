@@ -1,3 +1,5 @@
+// gatekeeper. actually receives clicks from a website
+// entry point to the backend. it receives the request, checks if the user is authenticated, and then calls the service to generate the resume.
 package com.resume.backend.controller;
 
 import com.resume.backend.ResumeRequest;
@@ -11,9 +13,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 
-@RestController
+@RestController // marks class as REST API controller. Automatically converts response → JSON
 //@CrossOrigin("*", allowCredentials = "true")
-@RequestMapping("/api/v1/resume")
+@RequestMapping("/api/v1/resume") // Base URL for all APIs
 public class ResumeController {
 
     private final ResumeService resumeService;
@@ -22,10 +24,10 @@ public class ResumeController {
         this.resumeService = resumeService;
     }
 
-    @PostMapping("/generate")
+    @PostMapping("/generate") // post request to generate resume. full url: /api/v1/resume/generate 
     public ResponseEntity<?> getResumeData(
-            @RequestBody ResumeRequest resumeRequest,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @RequestBody ResumeRequest resumeRequest, // @RequestBody ResumeRequest resumeRequest,
+            @AuthenticationPrincipal UserDetails userDetails) // @AuthenticationPrincipal UserDetails userDetails {
 
         try {
             // Check if user is authenticated
@@ -60,8 +62,8 @@ public class ResumeController {
         }
     }
 
-    // Optional: Add endpoint to get user's resume history
-    @GetMapping("/history")
+    // Add endpoint to get user's resume history
+    @GetMapping("/history") // get request  
     public ResponseEntity<?> getUserResumeHistory(@AuthenticationPrincipal UserDetails userDetails) {
         try {
             if (userDetails == null) {
@@ -80,3 +82,20 @@ public class ResumeController {
     }
 
 }
+
+/*
+Summary Workflow
+React Frontend → Sends JSON Request → Controller
+
+Controller → Validates Security → ResumeService (Implementation)
+
+ResumeService → Calls Ollama AI → Gets Result → Cleans Data
+
+ResumeService → Calls StorageService
+
+StorageService → Uses Repository → Saves to Database (Entity)
+
+StorageService → Returns DTO → Controller
+
+Controller → Sends JSON Response → React Frontend
+ */

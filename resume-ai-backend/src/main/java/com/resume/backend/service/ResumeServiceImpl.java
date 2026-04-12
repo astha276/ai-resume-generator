@@ -1,3 +1,6 @@
+// When a user clicks "Generate Resume," this code runs.
+// It takes a raw description, talks to an AI, cleans up the AI's "messy" response 
+// Saves it to the database.
 package com.resume.backend.service;
 
 import com.resume.backend.entity.User;
@@ -17,19 +20,20 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-@Service
-public class ResumeServiceImpl implements ResumeService {
+@Service // tells spring this is a service class that contains business logic
+// Spring will create object automatically (Dependency Injection)
+public class ResumeServiceImpl implements ResumeService { //class provides implementation for your interface methods
 
-    private final ChatClient chatClient;
-    private final UserRepository userRepository;
+    private final ChatClient chatClient; // inbuilt to talk to AI
+    private final UserRepository userRepository; // defined to access user from database 
 
-    @Autowired
-    private ResumeStorageService resumeStorageService;
+    @Autowired // @Autowired tells Spring to inject this dependency automatically
+    private ResumeStorageService resumeStorageService; // service to save generated resume to database 
 
+    // constructor injection 
     public ResumeServiceImpl(ChatClient.Builder builder,
-                             UserRepository userRepository) {
-        System.out.println(">>> ResumeServiceImpl constructor called");
-        this.chatClient = builder.build();
+                             UserRepository userRepository) { // constructor to initialize dependencies
+        this.chatClient = builder.build(); // to build the chat client 
         this.userRepository = userRepository;
         System.out.println(">>> ChatClient initialized: " + (chatClient != null));
         System.out.println(">>> UserRepository initialized: " + (userRepository != null));
@@ -52,7 +56,7 @@ public class ResumeServiceImpl implements ResumeService {
             System.out.println("Step 2: Loading prompt file...");
             String promptString;
             try {
-                promptString = loadPromptFromFile();
+                promptString = loadPromptFromFile(); // defined this function below
                 System.out.println("✓ Prompt loaded successfully");
                 System.out.println("Prompt preview: " + promptString.substring(0, Math.min(100, promptString.length())) + "...");
             } catch (IOException e) {
@@ -64,7 +68,8 @@ public class ResumeServiceImpl implements ResumeService {
             // Step 3: Prepare prompt with user description
             System.out.println("Step 3: Preparing prompt with user description...");
             String fullPrompt = putValuesToTemplate(promptString,
-                    Map.of("userDescription", userResumeDescription));
+                    Map.of("userDescription", userResumeDescription)); // defined this function below
+                    // map.of is used to create immutable maps, no null keys and values, 
             System.out.println("✓ Prompt prepared");
             System.out.println("Final prompt preview: " + fullPrompt.substring(0, Math.min(100, fullPrompt.length())) + "...");
 
@@ -72,11 +77,14 @@ public class ResumeServiceImpl implements ResumeService {
             System.out.println("Step 4: Calling AI service...");
             System.out.println("AI Service URL: " + getAiServiceUrl());
 
-            Prompt prompt = new Prompt(fullPrompt);
+            Prompt prompt = new Prompt(fullPrompt); // Prompt is basically class in Spring AI that wraps input text thats send to ai.
             String ollamaResponse;
 
             try {
                 ollamaResponse = chatClient.prompt(prompt).call().content();
+                // .prompt(prompt) -> gets the input
+                // .call() -> sends request to AI 
+                // .content() -> extracts only the text response 
                 System.out.println("✓ AI response received");
                 System.out.println("AI response preview: " + (ollamaResponse != null ? ollamaResponse.substring(0, Math.min(100, ollamaResponse.length())) : "NULL"));
             } catch (Exception e) {
@@ -92,7 +100,9 @@ public class ResumeServiceImpl implements ResumeService {
 
             // Step 5: Parse response
             System.out.println("Step 5: Parsing AI response...");
-            JSONObject parsedResponse = parseMultipleResponses(ollamaResponse);
+            JSONObject parsedResponse = parseMultipleResponses(ollamaResponse); // function is given below
+            // we need JSON thats why we have to this string -> json
+            // JSONObject is a class used to represent json data in java. It works like hashmaps.
             System.out.println("✓ Response parsed");
 
             // Step 6: Add metadata
@@ -148,6 +158,7 @@ public class ResumeServiceImpl implements ResumeService {
     String loadPromptFromFile() throws IOException {
         System.out.println("Attempting to load prompt from: src/main/resources/resume_prompt.txt");
         File file = new ClassPathResource("resume_prompt.txt").getFile();
+        // src/main/resources → target/classes file is found at src/main/resources/resume_prompt.txt
         System.out.println("File found at: " + file.getAbsolutePath());
         Path path = file.toPath();
         String content = Files.readString(path);
@@ -155,7 +166,7 @@ public class ResumeServiceImpl implements ResumeService {
         return content;
     }
 
-    String putValuesToTemplate(String template, Map<String, String> values) {
+    String putValuesToTemplate(String template, Map<String, String> values) {// Replace placeholders like {userDescription} in a template with actual values
         for (Map.Entry<String, String> entry : values.entrySet()) {
             String placeholder = "{" + entry.getKey() + "}";
             if (template.contains(placeholder)) {
@@ -171,22 +182,23 @@ public class ResumeServiceImpl implements ResumeService {
     public static JSONObject parseMultipleResponses(String response) {
         JSONObject jsonResponse = new JSONObject();
 
-        if (response == null || response.trim().isEmpty()) {
+        if (response == null || response.trim().isEmpty()) { // if response is null or empty. .trim() iss for removing leading and trailing whitespace
             jsonResponse.put("error", "Empty response from AI");
             return jsonResponse;
         }
 
         try {
             // First, try to clean the response
-            String cleaned = cleanJsonResponse(response);
+            String cleaned = cleanJsonResponse(response); // to remove unwanted markdowns like \n etc.
             System.out.println("Cleaned response: " + cleaned);
 
             // Try to find JSON object in the response
+            // assuming that json is in-between these texts 
             int jsonStart = cleaned.indexOf('{');
             int jsonEnd = cleaned.lastIndexOf('}');
 
             if (jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd) {
-                String jsonContent = cleaned.substring(jsonStart, jsonEnd + 1).trim();
+                String jsonContent = cleaned.substring(jsonStart, jsonEnd + 1).trim(); // removing the unwanted text other than json
                 System.out.println("Extracted JSON content: " + jsonContent);
 
                 try {
@@ -227,7 +239,7 @@ public class ResumeServiceImpl implements ResumeService {
         response = response.replaceAll(",\\s*}", "}"); // Remove trailing commas
         response = response.replaceAll(",\\s*]", "]"); // Remove trailing commas in arrays
 
-        // Fix the specific error we saw: {"fullName": {"John Doe", ...}}
+        // Fix the specific error saw: {"fullName": {"John Doe", ...}}
         response = response.replaceAll("\\{\\s*\"([^\"]+)\"\\s*:\\s*\\{\\s*\"([^\"]+)\"\\s*,", "{\"$1\": \"$2\",");
 
         return response.trim();
@@ -241,6 +253,8 @@ public class ResumeServiceImpl implements ResumeService {
         return error;
     }
 
+    // 2nd part  
+    // regenerating sections of resume like summary, skills, experience, projects etc.
     @Override
     public String regenerateSection(String userDescription, String section, String prompt, String context) {
         System.out.println("========== REGENERATING SECTION ==========");
@@ -249,10 +263,10 @@ public class ResumeServiceImpl implements ResumeService {
 
         try {
             // Create a targeted prompt for the specific section
-            String sectionPrompt = buildSectionPrompt(section, userDescription, prompt, context);
+            String sectionPrompt = buildSectionPrompt(section, userDescription, prompt, context); // function is given below
 
             // Call Ollama
-            String ollamaResponse = callOllama(sectionPrompt);
+            String ollamaResponse = callOllama(sectionPrompt); // sends prompt to ollama and gets response. function defiend below
 
             // Parse and clean the response
             JSONObject parsed = new JSONObject();
