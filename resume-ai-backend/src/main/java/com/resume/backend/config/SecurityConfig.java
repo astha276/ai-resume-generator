@@ -1,3 +1,5 @@
+//checkpoint that every request must pass through
+// tells which api are public, which api requires authentication, how jwt is handled, how passwords are encrypted 
 package com.resume.backend.config;
 
 import com.resume.backend.security.JwtAuthenticationEntryPoint;
@@ -14,18 +16,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-@Configuration
-@EnableWebSecurity
+@Configuration // configuration file
+@EnableWebSecurity // enables spring security
 public class SecurityConfig {
 
     @Autowired
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    private JwtAuthenticationFilter jwtAuthenticationFilter; // checks JWT token in requests
 
     @Autowired
-    private JwtAuthenticationEntryPoint unauthorizedHandler;
+    private JwtAuthenticationEntryPoint unauthorizedHandler; // handles unauthorized access
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // JWT is stateless
+        // CORS enabled, CSRF disabled (since we are not using cookies), exception handling for unauthorized access, session management set to stateless, and authorization rules for endpoints defined.
+        // CORS enabled → allows frontend (React, etc.) to call backend
+        // The server does NOT store any user session data.
         http
                 .cors().and()
                 .csrf().disable()
@@ -33,11 +39,11 @@ public class SecurityConfig {
                 .authenticationEntryPoint(unauthorizedHandler)
                 .and()
                 .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS) //stateless session. No sessions stored on server. Every request must carry JWT
                 .and()
                 .authorizeHttpRequests()
 
-                // PUBLIC endpoints - NO TOKEN REQUIRED
+                // PUBLIC endpoints - NO TOKEN REQUIRED. Anyone can access these endpoints without authentication.
                 .requestMatchers("/").permitAll()                    // Root path
                 .requestMatchers("/error").permitAll()               // Error path
                 .requestMatchers("/api/auth/**").permitAll()         // ALL auth endpoints
@@ -48,7 +54,7 @@ public class SecurityConfig {
                 // PROTECTED endpoints - TOKEN REQUIRED
                 .requestMatchers("/api/v1/resume/**").authenticated()
 
-                // Any other request
+                // Any other request needs authentication
                 .anyRequest().authenticated();
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -63,6 +69,6 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(); //Encrypts passwords using BCrypt algorithm.
     }
 }

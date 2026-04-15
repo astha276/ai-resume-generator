@@ -1,3 +1,4 @@
+// intercepts every request, extract JWT from header and validate it and set authentication in security context if valid. 
 package com.resume.backend.config;
 
 import com.resume.backend.service.CustomUserDetailsService;
@@ -19,7 +20,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter {// runs once per request
 
     @Autowired
     private JwtService jwtService;
@@ -45,7 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        final String authHeader = request.getHeader("Authorization"); // Authorization: Bearer <JWT>
         final String jwt;
         final String userEmail;
 
@@ -54,18 +55,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
+        jwt = authHeader.substring(7); // Removes "Bearer " prefix
+        userEmail = jwtService.extractUsername(jwt); // Extracts email from token payload
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail); // load user from DB 
 
-            if (jwtService.validateToken(jwt, userDetails)) {
+            if (jwtService.validateToken(jwt, userDetails)) { // Validates token (checks signature, expiration, and that email in token matches user email)
+                // JWT + SECRET_KEY → verify. Secret key is with the server
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
                         userDetails.getAuthorities()
-                );
+                ); // user is authenticated
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
