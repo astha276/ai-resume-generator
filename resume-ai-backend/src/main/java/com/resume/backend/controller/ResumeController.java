@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+// retention policies of annotation are of 3 types- compile, runtime, and source. Retention policy of an annotation indicates how long annotations with the annotated type are to be retained.
 
 @RestController // marks class as REST API controller. Automatically converts response → JSON
 //@CrossOrigin("*", allowCredentials = "true")
@@ -26,7 +27,9 @@ public class ResumeController {
 
     @PostMapping("/generate") // post request to generate resume. full url: /api/v1/resume/generate 
     public ResponseEntity<?> getResumeData(
-            @RequestBody ResumeRequest resumeRequest, // @RequestBody ResumeRequest resumeRequest,
+        //serialization- converts Java object → JSON. Deserialization- converts JSON → Java object
+        // byte stream is of type application/json. @RequestBody annotation is used to bind the request body to a method parameter in your controller. It tells Spring to deserialize the incoming JSON into a Java object.
+            @RequestBody ResumeRequest resumeRequest, // @RequestBody ResumeRequest resumeRequest, converts request/byte stream → Java object
             @AuthenticationPrincipal UserDetails userDetails) // @AuthenticationPrincipal UserDetails userDetails {
 
         try {
@@ -46,7 +49,7 @@ public class ResumeController {
             String userEmail = userDetails.getUsername();
 
             // Call service with user email to track who created this resume
-            String json = resumeService.generateResumeResponse(resumeRequest.userDescription(), userEmail);
+            String json = resumeService.generateResumeResponse(resumeRequest.userDescription(), userEmail);  
 
             return new ResponseEntity<>(json, HttpStatus.OK);
 
@@ -58,7 +61,7 @@ public class ResumeController {
                     e.getMessage(),
                     "/api/v1/resume/generate"
             );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error)
         }
     }
 
