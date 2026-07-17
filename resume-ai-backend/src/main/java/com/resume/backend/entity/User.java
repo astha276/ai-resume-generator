@@ -41,7 +41,7 @@ public class User implements UserDetails {
     @PrePersist // automatically take current time and date when creating the user
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now(); // to avoid null pointer
     }
 
     @PreUpdate // on update
