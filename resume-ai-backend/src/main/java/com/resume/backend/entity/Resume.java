@@ -20,9 +20,9 @@ public class Resume {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
  
-    @ManyToOne(fetch = FetchType.LAZY) //many users to one resume. Lazy- user data loaded only when needed.
+    @ManyToOne(fetch = FetchType.LAZY) //many resume rows relate to one user row. Lazy- user data loaded only when needed.
     @JoinColumn(name = "user_id", nullable = false) // Creates foreign key column user_id.
-    private User user;
+    private User user; // reference to user object
 
     @Column(name = "resume_title", nullable = false, length = 255)
     private String title;
