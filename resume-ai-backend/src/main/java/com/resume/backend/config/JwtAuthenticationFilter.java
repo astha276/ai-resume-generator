@@ -36,10 +36,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {// runs once 
     );
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
+    protected boolean shouldNotFilter(HttpServletRequest request) { // return true and this filter's main logic (doFilterInternal) gets skipped entirely for this request
+        String path = request.getRequestURI(); // for http://localhost:8080/login gives /login
         // Skip filter for public endpoints
-        return publicEndpoints.stream().anyMatch(path::startsWith);
+        return publicEndpoints.stream().anyMatch(path::startsWith); // does the request's path start with one of these three public paths?" If yes → skip the whole JWT check
     }
 
     @Override
@@ -64,14 +64,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {// runs once 
             if (jwtService.validateToken(jwt, userDetails)) { // Validates token (checks signature, expiration, and that email in token matches user email)
                 // JWT + SECRET_KEY → verify. Secret key is with the server
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
+                        userDetails, // who user
                         null,
-                        userDetails.getAuthorities()
+                        userDetails.getAuthorities()  // ROLE_USER, from getAuthorities()
                 ); // user is authenticated
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
-        chain.doFilter(request, response);
+        chain.doFilter(request, response); // This filter never itself sends a "rejected" response — it either sets identity or doesn't, and lets Spring Security's later authorization check decide the outcome.
     }
 }
+/*
+This filter runs on every request except the whitelisted public ones. It looks for a Bearer token;
+if there isn't one, it does nothing and moves on. If there is one, it decodes the email, re-fetches the actual user from the database, 
+verifies the token's signature/expiry/email-match, and — only if everything checks out — marks the current request as "authenticated as this user" in Spring Security's context.
+Either way, the request continues to the next filter; this class never blocks anything itself, it only decides whether to attach an identity.
+
+*/
