@@ -30,7 +30,7 @@ public class ResumeController {
         //serialization- converts Java object → JSON. Deserialization- converts JSON → Java object
         // byte stream is of type application/json. @RequestBody annotation is used to bind the request body to a method parameter in your controller. It tells Spring to deserialize the incoming JSON into a Java object.
             @RequestBody ResumeRequest resumeRequest, // @RequestBody ResumeRequest resumeRequest, converts request/byte stream → Java object
-            @AuthenticationPrincipal UserDetails userDetails) // @AuthenticationPrincipal UserDetails userDetails {
+            @AuthenticationPrincipal UserDetails userDetails){ // @AuthenticationPrincipal UserDetails userDetails {
 
         try {
             // Check if user is authenticated
@@ -61,7 +61,7 @@ public class ResumeController {
                     e.getMessage(),
                     "/api/v1/resume/generate"
             );
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
 
