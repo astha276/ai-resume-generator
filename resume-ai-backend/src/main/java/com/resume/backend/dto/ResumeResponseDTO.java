@@ -23,6 +23,7 @@ public class ResumeResponseDTO {
     private boolean isFavorite;
     private String fileFormat;
     private String aiModel;
+    private String s3ObjectKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

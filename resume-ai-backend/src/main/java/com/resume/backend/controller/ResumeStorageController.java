@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import com.resume.backend.dto.RegenerateSectionRequest;
 import com.resume.backend.service.ResumeService;
+import com.resume.backend.service.S3Service;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -30,6 +31,9 @@ public class ResumeStorageController {
 
     @Autowired
     private ResumeService resumeService;
+
+    @Autowired
+    private S3Service s3Service;
 
     // Save a new resume
     @PostMapping
@@ -298,6 +302,40 @@ public class ResumeStorageController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse(LocalDateTime.now(), 500, "Regeneration Failed",
                             e.getMessage(), "/api/v1/resumes/" + id + "/regenerate/" + section));
+        }
+    }
+
+    // Get a temporary, secure S3 download link for a resume's stored file
+    @GetMapping("/{id}/download-url")
+    public ResponseEntity<?> getDownloadUrl(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+        try {
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            // getResumeById() already checks that this resume belongs to the logged-in user
+            ResumeResponseDTO resume = resumeStorageService.getResumeById(userDetails.getUsername(), id);
+
+            if (resume.getS3ObjectKey() == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse(LocalDateTime.now(), 404, "Not Found",
+                                "No file stored in S3 for this resume", "/api/v1/resumes/" + id + "/download-url"));
+            }
+
+            String downloadUrl = s3Service.generatePresignedUrl(resume.getS3ObjectKey());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("downloadUrl", downloadUrl);
+            response.put("expiresIn", "15 minutes");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(LocalDateTime.now(), 500, "Failed to generate download URL",
+                            e.getMessage(), "/api/v1/resumes/" + id + "/download-url"));
         }
     }
 

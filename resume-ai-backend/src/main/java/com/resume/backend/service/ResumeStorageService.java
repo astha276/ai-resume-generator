@@ -50,8 +50,8 @@ public class ResumeStorageService {
     private ObjectMapper objectMapper; // for JSON parsing. it converts java object to json strings.
 
     @Autowired
-    private ObjectMapper objectMapper; // for JSON parsing. it converts java object to json strings.
-    
+    private S3Service s3Service; // uploads resume JSON to S3 and generates presigned download links
+
     @Transactional // ensures that the entire method runs in a transaction. if any exception occurs, it rolls back all changes to maintain data integrity.
     public ResumeResponseDTO saveResume(String userEmail, ResumeSaveRequest request) { // used when saving from the UI, where we have a structured request object
         // dto - data transfer object. we use it to transfer data between layers.(contoller <-> server <-> client)
@@ -72,18 +72,6 @@ public class ResumeStorageService {
         resume.setAiModel("deepseek-r1:1.5b"); 
 
         Resume savedResume = resumeRepository.save(resume);// .save from JpaRepository. resumerepository inherits from JpaRepository.
-         // Upload the generated content to S3, then save the S3 key back to this resume row
-        try {
-            String s3Key = "resumes/" + user.getId() + "/" + savedResume.getId() + ".json";
-            s3Service.uploadFile(generatedContent.getBytes(), s3Key);
-            savedResume.setS3ObjectKey(s3Key);
-            resumeRepository.save(savedResume); // update the row with the S3 key
-            System.out.println("✓ Uploaded to S3 with key: " + s3Key);
-        } catch (Exception e) {
-            // Don't fail the whole resume save if S3 upload fails — the JSON is already
-            // safely in MySQL either way. Just log it so we know S3 needs attention.
-            System.err.println("✗ S3 upload failed: " + e.getMessage());
-        }
         return convertToDTO(savedResume); // function defined below
     }
 
@@ -128,6 +116,19 @@ public class ResumeStorageService {
 
         Resume savedResume = resumeRepository.save(resume);
         System.out.println("✓ Resume saved with ID: " + savedResume.getId());
+
+        // Upload the generated content to S3, then save the S3 key back to this resume row
+        try {
+            String s3Key = "resumes/" + user.getId() + "/" + savedResume.getId() + ".json";
+            s3Service.uploadFile(generatedContent.getBytes(), s3Key);
+            savedResume.setS3ObjectKey(s3Key);
+            resumeRepository.save(savedResume); // update the row with the S3 key
+            System.out.println("✓ Uploaded to S3 with key: " + s3Key);
+        } catch (Exception e) {
+            // Don't fail the whole resume save if S3 upload fails — the JSON is already
+            // safely in MySQL either way. Just log it so we know S3 needs attention.
+            System.err.println("✗ S3 upload failed: " + e.getMessage());
+        }
 
         return convertToDTO(savedResume);
     }
@@ -346,6 +347,7 @@ public class ResumeStorageService {
                 .isFavorite(resume.isFavorite())
                 .fileFormat(resume.getFileFormat())
                 .aiModel(resume.getAiModel())
+                .s3ObjectKey(resume.getS3ObjectKey())
                 .createdAt(resume.getCreatedAt())
                 .updatedAt(resume.getUpdatedAt())
                 .build();
