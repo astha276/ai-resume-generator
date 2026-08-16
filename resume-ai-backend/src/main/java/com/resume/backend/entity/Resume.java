@@ -45,6 +45,9 @@ public class Resume {
     @Column(name = "tags", length = 500)
     private String tags;
 
+    @Column(name = "s3_object_key", length = 500)
+    private String s3ObjectKey;
+    
     // can also use prePersist and preUpdate here 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
