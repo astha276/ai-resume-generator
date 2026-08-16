@@ -13,10 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -156,12 +155,16 @@ public class ResumeServiceImpl implements ResumeService { //class provides imple
     }
 
     String loadPromptFromFile() throws IOException {
-        System.out.println("Attempting to load prompt from: src/main/resources/resume_prompt.txt");
-        File file = new ClassPathResource("resume_prompt.txt").getFile();
-        // src/main/resources → target/classes file is found at src/main/resources/resume_prompt.txt
-        System.out.println("File found at: " + file.getAbsolutePath());
-        Path path = file.toPath();
-        String content = Files.readString(path);
+        System.out.println("Attempting to load prompt from classpath: resume_prompt.txt");
+        // Read via InputStream instead of getFile() — getFile() requires the resource
+        // to exist as a real file on disk, which breaks once resources are bundled
+        // inside an executable jar (they only exist as a zip entry there, not a file path).
+        // getInputStream() works in both cases: local filesystem AND inside a packaged jar.
+        ClassPathResource resource = new ClassPathResource("resume_prompt.txt");
+        String content;
+        try (InputStream inputStream = resource.getInputStream()) {
+            content = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
         System.out.println("File size: " + content.length() + " characters");
         return content;
     }
